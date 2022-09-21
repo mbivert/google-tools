@@ -85,6 +85,12 @@ func getLastDay(xs []*searchconsole.ApiDataRow) (string, error) {
 	return n.Format(YYYYMMDD), nil
 }
 
+func stripSite(x, s string) string {
+	// remove all trailings / from website name
+	// e.g. https://foo/// -> https://foo
+	return strings.TrimPrefix(x, strings.TrimRight(s, "/"))
+}
+
 /************************************************************
  * Main commands
  */
@@ -147,7 +153,13 @@ func queryAllAnalytics(scs *searchconsole.Service, s string, full bool) error {
 		if !full && x.Clicks == 0. {
 			break
 		}
-		fmt.Printf("%-10d %-10d %-5.2f %s\n", int(x.Clicks), int(x.Impressions), x.Ctr*100, strings.Join(x.Keys, ", "))
+		fmt.Printf(
+			"%-10d %-10d %-5.2f %s\n",
+			int(x.Clicks),
+			int(x.Impressions),
+			x.Ctr*100,
+			stripSite(x.Keys[0], s),
+		)
 	}
 	return nil
 }
@@ -177,7 +189,13 @@ func queryLastAnalytics(scs *searchconsole.Service, s string) error {
 		if x.Keys[0] != last {
 			continue
 		}
-		fmt.Printf("%-10d %-10d %-5.2f %s\n", int(x.Clicks), int(x.Impressions), x.Ctr*100, x.Keys[1])
+		fmt.Printf(
+			"%-10d %-10d %-5.2f %s\n",
+			int(x.Clicks),
+			int(x.Impressions),
+			x.Ctr*100,
+			stripSite(x.Keys[1], s),
+		)
 	}
 
 	return nil
@@ -195,7 +213,13 @@ func queryDayAnalytics(scs *searchconsole.Service, s, d string) error {
 	fmt.Printf("Day: %s\n", d)
 	printHeader(xs, d)
 	for _, x := range xs {
-		fmt.Printf("%-10d %-10d %-5.2f %s\n", int(x.Clicks), int(x.Impressions), x.Ctr*100, x.Keys[1])
+		fmt.Printf(
+			"%-10d %-10d %-5.2f %s\n",
+			int(x.Clicks),
+			int(x.Impressions),
+			x.Ctr*100,
+			stripSite(x.Keys[1], s),
+		)
 	}
 
 	return nil
