@@ -86,7 +86,7 @@ func getLastDay(xs []*searchconsole.ApiDataRow) (string, error) {
 }
 
 func stripSite(x, s string) string {
-	// remove all trailings / from website name
+	// TrimRight: removes all trailings / from site name
 	// e.g. https://foo/// -> https://foo
 	return strings.TrimPrefix(x, strings.TrimRight(s, "/"))
 }
@@ -117,7 +117,7 @@ func lsSitemaps(scs *searchconsole.Service, s string) error {
 	return nil
 }
 
-func printHeader(xs []*searchconsole.ApiDataRow, last string) {
+func printHeader(xs []*searchconsole.ApiDataRow, last, cn string) {
 	nc := 0
 	ni := 0
 	for _, x := range xs {
@@ -133,7 +133,7 @@ func printHeader(xs []*searchconsole.ApiDataRow, last string) {
 	// an accumulation of rounding errors. This is much closer:
 	ct := float64(nc)/float64(ni)
 	fmt.Printf("----------------------------------\n")
-	fmt.Printf("%-10s %-10s %-5s %s\n", "Clicks", "Impr.", "Ctr.", "Pages")
+	fmt.Printf("%-10s %-10s %-5s %s\n", "Clicks", "Impr.", "Ctr.", cn)
 	fmt.Printf("%-10d %-10d %-5.2f %s\n", nc, ni, ct*100, "Total")
 	fmt.Printf("----------------------------------\n")
 }
@@ -148,7 +148,7 @@ func queryAllAnalytics(scs *searchconsole.Service, s string, full bool) error {
 	if err != nil {
 		return err
 	}
-	printHeader(xs, "")
+	printHeader(xs, "", "Pages")
 	for _, x := range xs {
 		if !full && x.Clicks == 0. {
 			break
@@ -183,7 +183,7 @@ func queryLastAnalytics(scs *searchconsole.Service, s string) error {
 	}
 	fmt.Printf("----------------------------------\n")
 	fmt.Printf("Last day: %s\n", last)
-	printHeader(xs, last)
+	printHeader(xs, last, "Pages")
 	for _, x := range xs {
 		// NOTE: always there, cf. getLastDay()
 		if x.Keys[0] != last {
@@ -211,7 +211,7 @@ func queryDayAnalytics(scs *searchconsole.Service, s, d string) error {
 
 	fmt.Printf("----------------------------------\n")
 	fmt.Printf("Day: %s\n", d)
-	printHeader(xs, d)
+	printHeader(xs, d, "Pages")
 	for _, x := range xs {
 		fmt.Printf(
 			"%-10d %-10d %-5.2f %s\n",
@@ -219,6 +219,55 @@ func queryDayAnalytics(scs *searchconsole.Service, s, d string) error {
 			int(x.Impressions),
 			x.Ctr*100,
 			stripSite(x.Keys[1], s),
+		)
+	}
+
+	return nil
+}
+
+func queryKeywordsFull(scs *searchconsole.Service, s, p string) error {
+	n := time.Now().UTC()
+
+	// Flexible input
+	s = strings.TrimRight(s, "/")
+	if p == "" || p[0] != '/' {
+		p = "/" + p
+	}
+
+	args := searchconsole.SearchAnalyticsQueryRequest{
+		Dimensions : []string{"QUERY"},
+		DimensionFilterGroups : []*searchconsole.ApiDimensionFilterGroup{
+			&searchconsole.ApiDimensionFilterGroup{
+				Filters : []*searchconsole.ApiDimensionFilter{
+					&searchconsole.ApiDimensionFilter {
+						Dimension  : "page",
+						Operator   : "equals",
+						Expression : s+p,
+					},
+				},
+			},
+		},
+		StartDate  : n.AddDate(-20, 0, 0).Format(YYYYMMDD),
+		EndDate    : n.Format(YYYYMMDD),
+		DataState  : "ALL",
+	}
+
+	saqr, err := scs.Searchanalytics.Query(s, &args).Do()
+	if err != nil {
+		return err
+	}
+
+	xs := saqr.Rows
+	fmt.Printf("----------------------------------\n")
+	fmt.Printf("Page: %s\n", p)
+	printHeader(xs, "", "Keywords")
+	for _, x := range xs {
+		fmt.Printf(
+			"%-10d %-10d %-5.2f %s\n",
+			int(x.Clicks),
+			int(x.Impressions),
+			x.Ctr*100,
+			x.Keys[0],
 		)
 	}
 
@@ -296,6 +345,14 @@ func main() {
 			help(1)
 		}
 		if err := queryAllAnalytics(scs, os.Args[n+1], true); err != nil {
+			log.Fatal(err)
+		}
+	case "query-keywords-full":
+		// <site> <page>
+		if len(os.Args) < n+3 {
+			help(1)
+		}
+		if err := queryKeywordsFull(scs, os.Args[n+1], os.Args[n+2]); err != nil {
 			log.Fatal(err)
 		}
 	case "help":
