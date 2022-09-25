@@ -7,6 +7,7 @@ import (
 	"os"
 	"context"
 	"strings"
+	"strconv"
 	"google.golang.org/api/searchconsole/v1"
 	"google.golang.org/api/option"
 )
@@ -333,11 +334,22 @@ func main() {
 			log.Fatal(err)
 		}
 	case "query-day":
-		if len(os.Args) < n+3 {
+		if len(os.Args) < n+2 {
 			help(1)
 		}
-		// TODO: -1 : yesterday, -2: two days ago, etc.
-		if err := queryDayAnalytics(scs, os.Args[n+1], os.Args[n+2]); err != nil {
+		d := time.Now().UTC().Format(YYYYMMDD)
+		if len(os.Args) == n+3 {
+			d = os.Args[n+2]
+		}
+		// -n : today - n days
+		if d[0] == '-' {
+			n, err := strconv.Atoi(d)
+			if err != nil {
+				log.Fatal("Invalid date shortcut: ", d)
+			}
+			d = time.Now().UTC().AddDate(0, 0, n).Format(YYYYMMDD)
+		}
+		if err := queryDayAnalytics(scs, os.Args[n+1], d); err != nil {
 			log.Fatal(err)
 		}
 	case "query-full":
