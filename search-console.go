@@ -139,13 +139,12 @@ func printHeader(xs []*searchconsole.ApiDataRow, last, cn string) {
 	fmt.Printf("----------------------------------\n")
 }
 
-func queryAllAnalytics(scs *searchconsole.Service, s string, full bool) error {
-	n := time.Now().UTC()
+func querySinceAnalytics(scs *searchconsole.Service, s, from string, full bool) error {
 	// 20 years ago
 	xs, err := queryAnalytics(
 		scs, s, []string{"PAGE"},
-		n.AddDate(-20, 0, 0).Format(YYYYMMDD),
-		n.Format(YYYYMMDD))
+		from,
+		time.Now().UTC().Format(YYYYMMDD))
 	if err != nil {
 		return err
 	}
@@ -280,6 +279,20 @@ func help(n int) {
 	os.Exit(n)
 }
 
+// -n : today - n days; otherwise assume we
+// already have a YYYY-MM-DD and returns it
+func parseDate(s string) (string, error) {
+	// -n : today - n days
+	if s[0] == '-' {
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			return "", fmt.Errorf("Invalid date shortcut: %s", s)
+		}
+		s = time.Now().UTC().AddDate(0, 0, n).Format(YYYYMMDD)
+	}
+	return s, nil
+}
+
 func main() {
 	var scs *searchconsole.Service
 	var err error
@@ -289,8 +302,26 @@ func main() {
 	}
 
 	ctx := context.Background()
-
 	n := 1
+
+	// TODO: clumsy os.Args parsing
+	var doQuerySinceAnalytics = func(full bool) {
+		if len(os.Args) < n+2 {
+			help(1)
+		}
+		d := time.Now().UTC().AddDate(-20, 0, 0).Format(YYYYMMDD)
+		if len(os.Args) == n+3 {
+			d = os.Args[n+2]
+		}
+		d, err := parseDate(d)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := querySinceAnalytics(scs, os.Args[n+1], d, full); err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	if os.Args[1] == "-c" {
 		// args0 -c <file> <cmd>
 		if len(os.Args) < 4 {
@@ -320,12 +351,9 @@ func main() {
 			log.Fatal(err)
 		}
 	case "query-all":
-		if len(os.Args) < n+2 {
-			help(1)
-		}
-		if err := queryAllAnalytics(scs, os.Args[n+1], false); err != nil {
-			log.Fatal(err)
-		}
+		doQuerySinceAnalytics(false)
+	case "query-full":
+		doQuerySinceAnalytics(true)
 	case "query-last":
 		if len(os.Args) < n+2 {
 			help(1)
@@ -341,7 +369,10 @@ func main() {
 		if len(os.Args) == n+3 {
 			d = os.Args[n+2]
 		}
-		// -n : today - n days
+		d, err := parseDate(d)
+		if err != nil {
+			log.Fatal(err)
+		}
 		if d[0] == '-' {
 			n, err := strconv.Atoi(d)
 			if err != nil {
@@ -350,13 +381,6 @@ func main() {
 			d = time.Now().UTC().AddDate(0, 0, n).Format(YYYYMMDD)
 		}
 		if err := queryDayAnalytics(scs, os.Args[n+1], d); err != nil {
-			log.Fatal(err)
-		}
-	case "query-full":
-		if len(os.Args) < n+2 {
-			help(1)
-		}
-		if err := queryAllAnalytics(scs, os.Args[n+1], true); err != nil {
 			log.Fatal(err)
 		}
 	case "query-keywords-full":
