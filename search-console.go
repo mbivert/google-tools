@@ -8,6 +8,7 @@ import (
 	"context"
 	"strings"
 	"strconv"
+	"path/filepath"
 	"google.golang.org/api/searchconsole/v1"
 	"google.golang.org/api/option"
 )
@@ -330,8 +331,24 @@ func main() {
 		scs, err = searchconsole.NewService(ctx, option.WithCredentialsFile(os.Args[2]))
 		n = 3
 	} else {
-		// Will rely on e.g. environ's GOOGLE_APPLICATION_CREDENTIALS
-		scs, err = searchconsole.NewService(ctx)
+		// If there's a search-console*.json file in current directory, use
+		// this as an auth file.
+		fns, err := filepath.Glob("search-console-*.json")
+		if err != nil {
+			log.Print("globbing failure when looking for cred file in $PWD", err)
+		} else if len(fns) > 0 {
+			scs, err = searchconsole.NewService(ctx, option.WithCredentialsFile(fns[0]))
+		} else {
+			fns, err := filepath.Glob(os.Getenv("HOME")+"/.search-console.json")
+			if err != nil {
+				log.Print("globbing failure when looking for cred file in $HOME", err)
+			} else if len(fns) > 0 {
+				scs, err = searchconsole.NewService(ctx, option.WithCredentialsFile(fns[0]))
+			} else {
+				// Will rely on e.g. environ's GOOGLE_APPLICATION_CREDENTIALS
+				scs, err = searchconsole.NewService(ctx)
+			}
+		}
 	}
 
 	if err != nil {
