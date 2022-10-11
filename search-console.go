@@ -9,6 +9,7 @@ import (
 	"strings"
 	"strconv"
 	"path/filepath"
+	"errors"
 	"google.golang.org/api/searchconsole/v1"
 	"google.golang.org/api/option"
 )
@@ -331,22 +332,38 @@ func main() {
 		scs, err = searchconsole.NewService(ctx, option.WithCredentialsFile(os.Args[2]))
 		n = 3
 	} else {
-		// If there's a search-console*.json file in current directory, use
-		// this as an auth file.
-		fns, err := filepath.Glob("search-console-*.json")
-		if err != nil {
-			log.Print("globbing failure when looking for cred file in $PWD", err)
-		} else if len(fns) > 0 {
-			scs, err = searchconsole.NewService(ctx, option.WithCredentialsFile(fns[0]))
+		fn := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
+		if fn != "" {
+			// XXX/TODO: there's a pointer referencing error occuring
+			// when GOOGLE_APPLICATION_CREDENTIALS refers to an inexisting
+			// file; haven't checked what happens with an invalid file.
+			//
+			// Note also that if we call searchconsole.NewService(ctx),
+			// relying on GOOGLE_APPLICATION_CREDENTIALS, and
+			// GOOGLE_APPLICATION_CREDENTIALS isn't set, we would have
+			// the same pointer error.
+			if _, err := os.Stat(fn); errors.Is(err, os.ErrNotExist) {
+				log.Fatal(fn, " does not exists")
+			}
+			// Implicitly use GOOGLE_APPLICATION_CREDENTIALS
+			scs, err = searchconsole.NewService(ctx)
 		} else {
-			fns, err := filepath.Glob(os.Getenv("HOME")+"/.search-console.json")
+			// If there's a search-console*.json file in current directory, use
+			// this as an auth file.
+			fns, err := filepath.Glob("search-console-*.json")
 			if err != nil {
-				log.Print("globbing failure when looking for cred file in $HOME", err)
+				log.Print("globbing failure when looking for cred file in $PWD", err)
 			} else if len(fns) > 0 {
 				scs, err = searchconsole.NewService(ctx, option.WithCredentialsFile(fns[0]))
 			} else {
-				// Will rely on e.g. environ's GOOGLE_APPLICATION_CREDENTIALS
-				scs, err = searchconsole.NewService(ctx)
+				fns, err := filepath.Glob(os.Getenv("HOME")+"/.search-console.json")
+				if err != nil {
+					log.Print("globbing failure when looking for cred file in $HOME", err)
+				} else if len(fns) > 0 {
+					scs, err = searchconsole.NewService(ctx, option.WithCredentialsFile(fns[0]))
+				} else {
+					log.Fatal("GOOGLE_APPLICATION_CREDENTIALS unset; no cred files found")
+				}
 			}
 		}
 	}
