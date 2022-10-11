@@ -62,6 +62,13 @@ func queryAnalytics(scs *searchconsole.Service, s string, dims []string, start, 
  * Aux
  */
 
+func mkSite(s string) string {
+	if !strings.HasPrefix(s, "https://") && !strings.HasPrefix(s, "http://") {
+		s = "https://"+s
+	}
+	return s
+}
+
 // YYYY-MM-DD format for time.Parse()/.Format()
 var YYYYMMDD = "2006-01-02"
 
@@ -319,7 +326,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		if err := querySinceAnalytics(scs, os.Args[n+1], d, full); err != nil {
+		if err := querySinceAnalytics(scs, mkSite(os.Args[n+1]), d, full); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -392,7 +399,7 @@ func main() {
 		if len(os.Args) < n+2 {
 			help(1)
 		}
-		if err := queryLastAnalytics(scs, os.Args[n+1]); err != nil {
+		if err := queryLastAnalytics(scs, mkSite(os.Args[n+1])); err != nil {
 			log.Fatal(err)
 		}
 	case "query-day":
@@ -414,7 +421,7 @@ func main() {
 			}
 			d = time.Now().UTC().AddDate(0, 0, n).Format(YYYYMMDD)
 		}
-		if err := queryDayAnalytics(scs, os.Args[n+1], d); err != nil {
+		if err := queryDayAnalytics(scs, mkSite(os.Args[n+1]), d); err != nil {
 			log.Fatal(err)
 		}
 	case "query-keywords-full":
@@ -422,7 +429,7 @@ func main() {
 		if len(os.Args) < n+3 {
 			help(1)
 		}
-		if err := queryKeywordsFull(scs, os.Args[n+1], os.Args[n+2]); err != nil {
+		if err := queryKeywordsFull(scs, mkSite(os.Args[n+1]), os.Args[n+2]); err != nil {
 			log.Fatal(err)
 		}
 	case "help":
