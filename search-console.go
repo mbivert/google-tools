@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"path/filepath"
 	"errors"
+	"net"
+	"runtime"
 	"google.golang.org/api/searchconsole/v1"
 	"google.golang.org/api/option"
 )
@@ -308,6 +310,24 @@ func main() {
 
 	if len(os.Args) < 2 {
 		help(1)
+	}
+
+	// https://github.com/golang/go/issues/8877
+	// On android, DNS requests tend to fail (well, they
+	// go through fine with USB tethering turned on for
+	// instance); by default, contact the local resolver.
+	if runtime.GOOS == "android" {
+		var dialer net.Dialer
+		net.DefaultResolver = &net.Resolver{
+			PreferGo: false,
+			Dial: func(context context.Context, _, _ string) (net.Conn, error) {
+				conn, err := dialer.DialContext(context, "udp", "1.1.1.1:53")
+				if err != nil {
+					return nil, err
+				}
+				return conn, nil
+			},
+		}
 	}
 
 	ctx := context.Background()
