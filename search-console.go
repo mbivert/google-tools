@@ -146,7 +146,7 @@ func printHeader(xs []*searchconsole.ApiDataRow, last, cn string) {
 	ct := float64(nc)/float64(ni)
 	fmt.Printf("----------------------------------\n")
 	fmt.Printf("%-10s %-10s %-5s %s\n", "Clicks", "Impr.", "Ctr.", cn)
-	fmt.Printf("%-10d %-10d %-5.2f %s\n", nc, ni, ct*100, "Total")
+	fmt.Printf("%-10d %-10d %-6.2f %s\n", nc, ni, ct*100, "Total")
 	fmt.Printf("----------------------------------\n")
 }
 
@@ -165,7 +165,7 @@ func querySinceAnalytics(scs *searchconsole.Service, s, from string, full bool) 
 			break
 		}
 		fmt.Printf(
-			"%-10d %-10d %-5.2f %s\n",
+			"%-10d %-10d %-6.2f %s\n",
 			int(x.Clicks),
 			int(x.Impressions),
 			x.Ctr*100,
@@ -201,7 +201,7 @@ func queryLastAnalytics(scs *searchconsole.Service, s string) error {
 			continue
 		}
 		fmt.Printf(
-			"%-10d %-10d %-5.2f %s\n",
+			"%-10d %-10d %-6.2f %s\n",
 			int(x.Clicks),
 			int(x.Impressions),
 			x.Ctr*100,
@@ -225,7 +225,7 @@ func queryDayAnalytics(scs *searchconsole.Service, s, d string) error {
 	printHeader(xs, d, "Pages")
 	for _, x := range xs {
 		fmt.Printf(
-			"%-10d %-10d %-5.2f %s\n",
+			"%-10d %-10d %-6.2f %s\n",
 			int(x.Clicks),
 			int(x.Impressions),
 			x.Ctr*100,
@@ -274,7 +274,7 @@ func queryKeywordsFull(scs *searchconsole.Service, s, p string) error {
 	printHeader(xs, "", "Keywords")
 	for _, x := range xs {
 		fmt.Printf(
-			"%-10d %-10d %-5.2f %s\n",
+			"%-10d %-10d %-6.2f %s\n",
 			int(x.Clicks),
 			int(x.Impressions),
 			x.Ctr*100,
@@ -426,23 +426,23 @@ func main() {
 		if len(os.Args) < n+2 {
 			help(1)
 		}
-		d := time.Now().UTC().Format(YYYYMMDD)
-		if len(os.Args) == n+3 {
-			d = os.Args[n+2]
-		}
-		d, err := parseDate(d)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if d[0] == '-' {
-			n, err := strconv.Atoi(d)
-			if err != nil {
-				log.Fatal("Invalid date shortcut: ", d)
+		if len(os.Args) == n+2 {
+			d := time.Now().UTC().Format(YYYYMMDD)
+			if err := queryDayAnalytics(scs, mkSite(os.Args[n+1]), d); err != nil {
+				log.Fatal(err)
 			}
-			d = time.Now().UTC().AddDate(0, 0, n).Format(YYYYMMDD)
+			break
 		}
-		if err := queryDayAnalytics(scs, mkSite(os.Args[n+1]), d); err != nil {
-			log.Fatal(err)
+		// NOTE: maybe such loops would be better handled by
+		// a sh(1) wrapper
+		for i := n+2; i < len(os.Args); i++ {
+			d, err := parseDate(os.Args[i])
+			if err != nil {
+				log.Fatal(err)
+			}
+			if err := queryDayAnalytics(scs, mkSite(os.Args[n+1]), d); err != nil {
+				log.Fatal(err)
+			}
 		}
 	case "query-keywords-full":
 		// <site> <page>
