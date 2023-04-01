@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"google.golang.org/api/searchconsole/v1"
 	"google.golang.org/api/option"
+	"sort"
 )
 
 /************************************************************
@@ -45,6 +46,17 @@ func getSitemaps(scs *searchconsole.Service, s string) ([]string, error) {
 	return xs, nil
 }
 
+type ByClicksImprs []*searchconsole.ApiDataRow
+
+func (xs ByClicksImprs) Len() int      { return len(xs)              }
+func (xs ByClicksImprs) Swap(i, j int) { xs[i], xs[j] = xs[j], xs[i] }
+func (xs ByClicksImprs) Less(i, j int) bool {
+	if int(xs[i].Clicks) == int(xs[j].Clicks) {
+		return int(xs[i].Impressions) > int(xs[j].Impressions)
+	}
+	return int(xs[i].Clicks) > int(xs[j].Clicks)
+}
+
 func queryAnalytics(scs *searchconsole.Service, s string, dims []string, start, end string) ([]*searchconsole.ApiDataRow, error) {
 	args := searchconsole.SearchAnalyticsQueryRequest{
 		Dimensions : dims,
@@ -57,6 +69,7 @@ func queryAnalytics(scs *searchconsole.Service, s string, dims []string, start, 
 	if err != nil {
 		return nil, err
 	}
+	sort.Sort(ByClicksImprs(saqr.Rows))
 	return saqr.Rows, nil
 }
 
